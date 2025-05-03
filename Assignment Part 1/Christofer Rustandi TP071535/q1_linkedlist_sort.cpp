@@ -1,8 +1,6 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include <set>
-#include <unordered_set>
 using namespace std;
 
 struct Record {
@@ -16,22 +14,7 @@ struct Node {
     Node(Record r) : data(r), next(nullptr) {}
 };
 
-// Convert date like "01/01/2022" to 20220101 for sorting
-int dateToNumber(const string& date) {
-    int d, m, y;
-    char s;
-    stringstream ss(date);
-    ss >> d >> s >> m >> s >> y;
-    return y * 10000 + m * 100 + d;
-}
-
-// Create a unique signature from a record
-string makeSignature(const Record& r) {
-    return r.customerID + "|" + r.product + "|" + r.category + "|" +
-           to_string(r.price) + "|" + r.date + "|" + r.paymentMethod;
-}
-
-// Insert a new node at the end of the list
+// Add a new record to the linked list
 void append(Node*& head, Node*& tail, Record r, int& count) {
     Node* newNode = new Node(r);
     if (!head) head = tail = newNode;
@@ -40,6 +23,21 @@ void append(Node*& head, Node*& tail, Record r, int& count) {
         tail = newNode;
     }
     count++;
+}
+
+// Convert date string to sortable number (e.g., 01/01/2023 -> 20230101)
+int dateToNumber(const string& date) {
+    int d, m, y;
+    char s;
+    stringstream ss(date);
+    ss >> d >> s >> m >> s >> y;
+    return y * 10000 + m * 100 + d;
+}
+
+// Create a signature string from record for duplicate detection
+string makeSignature(const Record& r) {
+    return r.customerID + "|" + r.product + "|" + r.category + "|" +
+           to_string(r.price) + "|" + r.date + "|" + r.paymentMethod;
 }
 
 // Merge two sorted linked lists
@@ -74,7 +72,7 @@ void split(Node* source, Node*& front, Node*& back) {
     slow->next = nullptr;
 }
 
-// Merge sort for linked list
+// Perform merge sort on a linked list
 void mergeSort(Node*& head) {
     if (!head || !head->next) return;
 
@@ -85,21 +83,37 @@ void mergeSort(Node*& head) {
     head = merge(a, b);
 }
 
-// Load CSV data into linked list
-void loadCSV(const string& file, set<string>& ids, Node*& head, Node*& tail,
-             bool isTransaction, unordered_set<string>& shared,
-             unordered_set<string>& seen, int& totalCount) {
+// Check if a string exists in an array
+bool stringExists(string arr[], int size, const string& val) {
+    for (int i = 0; i < size; ++i)
+        if (arr[i] == val) return true;
+    return false;
+}
+
+// Add string to array if it's not already in it
+void addString(string arr[], int& size, const string& val) {
+    if (!stringExists(arr, size, val)) {
+        arr[size++] = val;
+    }
+}
+
+// Load data from CSV file into a linked list and track customer IDs and unique records
+void loadCSV(const string& file, string idArr[], int& idCount,
+             Node*& head, Node*& tail, bool isTransaction,
+             string sharedIDs[], int sharedCount,
+             string seen[], int& seenCount, int& totalCount) {
+
     ifstream f(file);
     string line;
     getline(f, line); // Skip header
 
     while (getline(f, line)) {
         if (line.size() > 0 && (unsigned char)line[0] == 0xEF)
-            line.erase(0, 3); // Remove BOM if present
+            line.erase(0, 3); // Remove BOM
 
         Record r;
-        stringstream ss(line);
         string dummy, priceStr;
+        stringstream ss(line);
 
         if (isTransaction) {
             getline(ss, r.customerID, ';');
@@ -115,28 +129,31 @@ void loadCSV(const string& file, set<string>& ids, Node*& head, Node*& tail,
             getline(ss, dummy, ',');
             getline(ss, dummy, ',');
             r.product = r.category = r.paymentMethod = "";
-            r.price = 0;
+            r.price = 0.0;
             r.date = "";
         }
 
-        ids.insert(r.customerID);
-        string sig = makeSignature(r);
+        addString(idArr, idCount, r.customerID);
 
-        if (shared.count(r.customerID) && !seen.count(sig)) {
+        string sig = makeSignature(r);
+        if (stringExists(sharedIDs, sharedCount, r.customerID) &&
+            !stringExists(seen, seenCount, sig)) {
+
             if (!isTransaction && r.date.empty()) continue;
+
             append(head, tail, r, totalCount);
-            seen.insert(sig);
+            addString(seen, seenCount, sig);
         }
     }
     f.close();
 }
 
-// Display top 5 unique dates with up to 5 records each
+// Show top 5 unique dates, with up to 5 records each
 void display(Node* head) {
     string currentDate = "";
     int shown = 0, dateCount = 0;
 
-    cout << "\nShowing top 5 unique dates (up to 5 records each):\n";
+    cout << "\nTop 5 Unique Dates (up to 5 records each):\n";
 
     while (head && dateCount < 5) {
         if (head->data.date != currentDate) {
@@ -159,35 +176,45 @@ void display(Node* head) {
 }
 
 int main() {
-    Node* head = nullptr, *tail = nullptr;
-    set<string> transactionIDs, reviewIDs;
-    unordered_set<string> sharedIDs, signatures;
+    Node* head = nullptr;
+    Node* tail = nullptr;
+
+    string transactionIDs[1000], reviewIDs[1000], sharedIDs[1000], signatures[2000];
+    int transCount = 0, reviewCount = 0, sharedCount = 0, sigCount = 0;
     int totalCount = 0;
 
     string transactionFile = "D:/C++ FOLDER/Final Assignment/Data CSV/transactions_cleaned.csv";
     string reviewFile = "D:/C++ FOLDER/Final Assignment/Data CSV/reviews_cleaned.csv";
 
-    // Step 1: Load IDs from both datasets
-    loadCSV(transactionFile, transactionIDs, head, tail, true, sharedIDs, signatures, totalCount);
+    // Load customer IDs from transactions
+    loadCSV(transactionFile, transactionIDs, transCount, head, tail, true,
+            sharedIDs, sharedCount, signatures, sigCount, totalCount);
     head = tail = nullptr;
-    signatures.clear(); totalCount = 0;
+    sigCount = totalCount = 0;
 
-    loadCSV(reviewFile, reviewIDs, head, tail, false, sharedIDs, signatures, totalCount);
-    for (const string& id : transactionIDs)
-        if (reviewIDs.count(id)) sharedIDs.insert(id);
-
+    // Load customer IDs from reviews
+    loadCSV(reviewFile, reviewIDs, reviewCount, head, tail, false,
+            sharedIDs, sharedCount, signatures, sigCount, totalCount);
     head = tail = nullptr;
-    signatures.clear(); totalCount = 0;
+    sigCount = totalCount = 0;
 
-    // Step 2: Load valid and unique records from both files
-    loadCSV(transactionFile, transactionIDs, head, tail, true, sharedIDs, signatures, totalCount);
-    loadCSV(reviewFile, reviewIDs, head, tail, false, sharedIDs, signatures, totalCount);
+    // Find shared customer IDs between both files
+    for (int i = 0; i < transCount; ++i) {
+        if (stringExists(reviewIDs, reviewCount, transactionIDs[i])) {
+            sharedIDs[sharedCount++] = transactionIDs[i];
+        }
+    }
 
-    // Step 3: Sort and display
+    // Load and merge valid transaction and review records
+    loadCSV(transactionFile, transactionIDs, transCount, head, tail, true,
+            sharedIDs, sharedCount, signatures, sigCount, totalCount);
+    loadCSV(reviewFile, reviewIDs, reviewCount, head, tail, false,
+            sharedIDs, sharedCount, signatures, sigCount, totalCount);
+
+    // Sort and display results
     mergeSort(head);
     display(head);
 
-    // Step 4: Show total
-    cout << "\nTotal unique merged transactions: " << totalCount << "\n";
+    cout << "\nTotal Unique Valid Records: " << totalCount << "\n";
     return 0;
 }
