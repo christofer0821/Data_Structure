@@ -1,124 +1,102 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <iomanip>
+#include <chrono>
 using namespace std;
+using namespace chrono;
 
-const int MAX = 5000;
-const int TABLE_SIZE = 101; // Size of hash table
+const int MAX_HASH = 100; // simple hash table size
 
-// Store one transaction
-struct Transaction {
-    string customerID;
-    string product;
+// Linked list node for records
+struct RecordNode {
     string category;
-    double price;
-    string date;
     string paymentMethod;
+    RecordNode* next;
 };
 
-// Node for hash table
-struct HashNode {
-    string category;
-    int totalCount;
-    int creditCardCount;
-    HashNode* next;
-};
-
-// Hash function for strings
-int hashFunc(string key) {
+// Simple hash function for strings
+int hashString(const string& str) {
     int hash = 0;
-    for (char ch : key)
-        hash += (int)ch;
-    return hash % TABLE_SIZE;
+    for (char c : str) {
+        hash += c;
+    }
+    return hash % MAX_HASH;
 }
 
-// Add or update a category in the hash table
-void insertToHash(HashNode* table[], string category, string paymentMethod) {
-    int index = hashFunc(category);
-    HashNode* current = table[index];
+// Append to linked list
+void append(RecordNode*& head, string category, string payment) {
+    RecordNode* newNode = new RecordNode{category, payment, nullptr};
+    if (!head) {
+        head = newNode;
+    } else {
+        RecordNode* temp = head;
+        while (temp->next) temp = temp->next;
+        temp->next = newNode;
+    }
+}
 
-    while (current != nullptr) {
-        if (current->category == category) {
-            current->totalCount++;
-            if (paymentMethod == "Credit Card")
-                current->creditCardCount++;
-            return;
+int main() {
+    auto start = high_resolution_clock::now(); // Start timing
+
+    ifstream file("D:\\C++ FOLDER\\Final Assignment\\Data CSV\\transactions_cleaned.csv");
+    if (!file) {
+        cerr << "File could not be opened!" << endl;
+        return 1;
+    }
+
+    string line;
+    RecordNode* head = nullptr;
+    int nodeCount = 0;
+
+    getline(file, line); // Skip header
+
+    while (getline(file, line)) {
+        stringstream ss(line);
+        string id, product, category, price, date, payment;
+        getline(ss, id, ',');
+        getline(ss, product, ',');
+        getline(ss, category, ',');
+        getline(ss, price, ',');
+        getline(ss, date, ',');
+        getline(ss, payment, ',');
+        append(head, category, payment);
+        nodeCount++;
+    }
+
+    // Step 1: Filter Electronics and hash-check for Credit Card
+    int electronicsTotal = 0, creditCardCount = 0;
+    int creditCardHash = hashString("Credit Card");
+
+    RecordNode* current = head;
+    while (current) {
+        if (current->category == "Electronics") {
+            electronicsTotal++;
+            if (hashString(current->paymentMethod) == creditCardHash &&
+                current->paymentMethod == "Credit Card") {
+                creditCardCount++;
+            }
         }
         current = current->next;
     }
 
-    // New category
-    HashNode* newNode = new HashNode;
-    newNode->category = category;
-    newNode->totalCount = 1;
-    newNode->creditCardCount = (paymentMethod == "Credit Card") ? 1 : 0;
-    newNode->next = table[index];
-    table[index] = newNode;
-}
+    // Step 2: Calculate and print percentage
+    double percentage = (electronicsTotal == 0) ? 0.0 :
+                        (double)creditCardCount / electronicsTotal * 100.0;
 
-// Search for a category in the hash table
-HashNode* searchCategory(HashNode* table[], string category) {
-    int index = hashFunc(category);
-    HashNode* current = table[index];
+    cout << "Total 'Electronics' purchases: " << electronicsTotal << endl;
+    cout << "Using Credit Card: " << creditCardCount << endl;
+    cout << fixed << setprecision(4);
+    cout << "Percentage: " << percentage << "%" << endl;
 
-    while (current != nullptr) {
-        if (current->category == category)
-            return current;
-        current = current->next;
-    }
-    return nullptr;
-}
+    auto end = high_resolution_clock::now(); // End timing
+    auto durationMs = duration_cast<milliseconds>(end - start);
 
-// Load transactions from file and update hash table
-int loadAndHashTransactions(string filename, HashNode* hashTable[]) {
-    ifstream file(filename);
-    if (!file.is_open()) {
-        cout << "Error: File not found." << endl;
-        return 0;
-    }
+    size_t nodeSize = sizeof(RecordNode);
+    size_t totalMemory = nodeSize * nodeCount;
 
-    string line;
-    getline(file, line); // skip header
-    int total = 0;
-
-    while (getline(file, line)) {
-        stringstream ss(line);
-        string priceStr;
-        Transaction tx;
-
-        getline(ss, tx.customerID, ';');
-        getline(ss, tx.product, ';');
-        getline(ss, tx.category, ';');
-        getline(ss, priceStr, ';');
-        tx.price = stod(priceStr);
-        getline(ss, tx.date, ';');
-        getline(ss, tx.paymentMethod, ';');
-
-        insertToHash(hashTable, tx.category, tx.paymentMethod);
-        total++;
-    }
-
-    file.close();
-    return total;
-}
-
-int main() {
-    string transactionFile = "D:/C++ FOLDER/Final Assignment/Data CSV/transactions_cleaned.csv";
-    HashNode* hashTable[TABLE_SIZE] = {nullptr}; // Initialize table
-
-    int totalTransactions = loadAndHashTransactions(transactionFile, hashTable);
-
-    // Get stats for Electronics category
-    HashNode* electronics = searchCategory(hashTable, "Electronics");
-
-    if (electronics == nullptr) {
-        cout << "No Electronics transactions found.\n";
-    } else {
-        double percentage = (double)electronics->creditCardCount / electronics->totalCount * 100;
-        cout << "Total Electronics purchases : " << electronics->totalCount << endl;
-        cout << "Paid with Credit Card       : " << electronics->creditCardCount << endl;
-        cout << "Percentage                  : " << percentage << "%" << endl;
-    }
+    cout << "Execution time: " << durationMs.count() << " ms" << endl;
+    cout << "Approximate memory used: " << totalMemory << " bytes" << endl;
 
     return 0;
 }

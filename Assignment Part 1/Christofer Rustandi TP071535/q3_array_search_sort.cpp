@@ -1,8 +1,11 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <iomanip>
 #include <cctype>
+#include <chrono>
 using namespace std;
+using namespace chrono;
 
 const int MAX_WORDS = 10000;
 const int MAX_STOPS = 50;
@@ -12,7 +15,16 @@ struct WordCount {
     int count;
 };
 
-// List of common stop words
+// === Function Prototypes ===
+string toLowerCase(string text);
+bool isValidChar(char c);
+bool isStopWord(string word);
+int findWordIndex(WordCount wordList[], int size, string word, bool& found);
+void extractWords(string line, WordCount wordList[], int& wordTotal);
+void mergeByFrequency(WordCount arr[], int left, int mid, int right);
+void mergeSortByFrequency(WordCount arr[], int left, int right);
+// ===========================
+
 string stopWords[MAX_STOPS] = {
     "the", "is", "a", "an", "to", "and", "in", "on", "for", "of",
     "with", "at", "by", "from", "up", "about", "into", "over", "after",
@@ -21,19 +33,16 @@ string stopWords[MAX_STOPS] = {
     "out", "no", "do", "did", "has", "have", "had", "can", "will", "just", "my"
 };
 
-// Convert string to lowercase
 string toLowerCase(string text) {
     for (int i = 0; i < text.length(); i++)
         text[i] = tolower(text[i]);
     return text;
 }
 
-// Check if character is valid
 bool isValidChar(char c) {
     return isalpha(c) || isdigit(c);
 }
 
-// Check if word is a stop word
 bool isStopWord(string word) {
     for (int i = 0; i < MAX_STOPS; i++) {
         if (stopWords[i] == word)
@@ -42,7 +51,6 @@ bool isStopWord(string word) {
     return false;
 }
 
-// Binary search to find index of word or insertion point
 int findWordIndex(WordCount wordList[], int size, string word, bool& found) {
     int left = 0, right = size - 1;
     found = false;
@@ -59,10 +67,9 @@ int findWordIndex(WordCount wordList[], int size, string word, bool& found) {
         }
     }
 
-    return left; // insertion point
+    return left;
 }
 
-// Extract words and count using binary search
 void extractWords(string line, WordCount wordList[], int& wordTotal) {
     string word = "";
 
@@ -92,7 +99,6 @@ void extractWords(string line, WordCount wordList[], int& wordTotal) {
     }
 }
 
-// Merge Sort by frequency
 void mergeByFrequency(WordCount arr[], int left, int mid, int right) {
     int n1 = mid - left + 1, n2 = right - mid;
     WordCount* L = new WordCount[n1];
@@ -127,6 +133,8 @@ void mergeSortByFrequency(WordCount arr[], int left, int right) {
 
 // === MAIN ===
 int main() {
+    auto start = high_resolution_clock::now();  // Start timing
+
     string filename = "D:/C++ FOLDER/Final Assignment/Data CSV/reviews_cleaned.csv";
     ifstream file(filename);
     if (!file.is_open()) {
@@ -159,11 +167,21 @@ int main() {
     // Sort by frequency using Merge Sort
     mergeSortByFrequency(wordList, 0, wordTotal - 1);
 
-    // Display top 10
+    // Display top 10 frequent words
     cout << "\nTop 10 Frequent Words in 1-Star Reviews:\n";
     for (int i = 0; i < 10 && i < wordTotal; i++) {
         cout << wordList[i].word << " : " << wordList[i].count << endl;
     }
+
+    auto end = high_resolution_clock::now(); // End timing
+    auto durationMs = duration_cast<milliseconds>(end - start);
+
+    // Estimate memory used
+    size_t wordCountSize = sizeof(WordCount);
+    size_t memoryUsed = wordCountSize * wordTotal;
+
+    cout << "\nExecution time: " << durationMs.count() << " ms" << endl;
+    cout << "Approximate memory used: " << memoryUsed << " bytes" << endl;
 
     return 0;
 }

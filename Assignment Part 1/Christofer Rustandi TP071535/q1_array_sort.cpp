@@ -1,261 +1,172 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <string>
+#include <chrono>
 using namespace std;
+using namespace chrono;
 
-// Custom Record Structure 
-struct Record {
+const int MAX = 10000;
+
+struct Transaction {
     string customerID;
     string product;
     string category;
-    double price;
+    float price;
     string date;
     string paymentMethod;
 };
 
-// Linked List Node for Record 
-struct RecordNode {
-    Record data;
-    RecordNode* next;
-};
+void trim(string& s);
+bool isValidCustomerID(const string& id);
+void mergeSort(Transaction arr[], int left, int right);
+void merge(Transaction arr[], int left, int mid, int right);
+int dateToNumber(const string& date);
 
-// Helper to Convert Date (e.g., 01/01/2022 → 20220101)
-int dateToNumber(const string& date) {
-    int day, month, year;
-    char slash;
-    stringstream ss(date);
-    ss >> day >> slash >> month >> slash >> year;
-    return year * 10000 + month * 100 + day;
-}
-
-// Append Record to Linked List 
-void appendRecord(RecordNode*& head, Record data) {
-    RecordNode* newNode = new RecordNode{data, nullptr};
-    if (!head) head = newNode;
-    else {
-        RecordNode* temp = head;
-        while (temp->next) temp = temp->next;
-        temp->next = newNode;
-    }
-}
-
-// Check if string exists in array (simulate set) 
-bool stringExists(string arr[], int size, const string& val) {
-    for (int i = 0; i < size; ++i) {
-        if (arr[i] == val) return true;
-    }
-    return false;
-}
-
-// Add string to array if not already exists
-void addStringIfNotExists(string arr[], int& size, const string& val) {
-    if (!stringExists(arr, size, val)) {
-        arr[size++] = val;
-    }
-}
-
-// Create signature string from Record 
-string makeSignature(const Record& r) {
-    return r.customerID + "|" + r.product + "|" + r.category + "|" +
-           to_string(r.price) + "|" + r.date + "|" + r.paymentMethod;
-}
-
-// Load Transactions
-int loadTransactions(RecordNode*& head, string customerIDs[], int& idCount, const string& filename) {
-    ifstream file(filename);
-    if (!file.is_open()) {
-        cout << "Cannot open file: " << filename << endl;
-        return 0;
-    }
-
-    string line;
-    getline(file, line); // Skip header
-    if (line.size() > 0 && (unsigned char)line[0] == 0xEF) line.erase(0, 3); // Remove BOM
-
-    int count = 0;
-    while (getline(file, line)) {
-        Record r;
-        string priceStr;
-        stringstream ss(line);
-
-        getline(ss, r.customerID, ';');
-        getline(ss, r.product, ';');
-        getline(ss, r.category, ';');
-        getline(ss, priceStr, ';');
-        r.price = stod(priceStr);
-        getline(ss, r.date, ';');
-        getline(ss, r.paymentMethod, ';');
-
-        appendRecord(head, r);
-        addStringIfNotExists(customerIDs, idCount, r.customerID);
-        count++;
-    }
-
-    file.close();
-    return count;
-}
-
-// Load Reviews 
-int loadReviews(RecordNode*& head, string customerIDs[], int& idCount, const string& filename) {
-    ifstream file(filename);
-    if (!file.is_open()) {
-        cout << "Cannot open file: " << filename << endl;
-        return 0;
-    }
-
-    string line;
-    getline(file, line); // Skip header
-    if (line.size() > 0 && (unsigned char)line[0] == 0xEF) line.erase(0, 3); // Remove BOM
-
-    int count = 0;
-    while (getline(file, line)) {
-        Record r;
-        string dummy;
-        stringstream ss(line);
-
-        getline(ss, dummy, ','); // Product ID
-        getline(ss, r.customerID, ','); // Customer ID
-        getline(ss, dummy, ','); // Rating
-        getline(ss, dummy, ','); // Review Text
-
-        r.product = "";
-        r.category = "";
-        r.price = 0.0;
-        r.date = ""; // No date
-        r.paymentMethod = "";
-
-        appendRecord(head, r);
-        addStringIfNotExists(customerIDs, idCount, r.customerID);
-        count++;
-    }
-
-    file.close();
-    return count;
-}
-
-// Merge Two Sorted Lists
-RecordNode* mergeSortedLists(RecordNode* a, RecordNode* b) {
-    if (!a) return b;
-    if (!b) return a;
-
-    if (dateToNumber(a->data.date) <= dateToNumber(b->data.date)) {
-        a->next = mergeSortedLists(a->next, b);
-        return a;
-    } else {
-        b->next = mergeSortedLists(a, b->next);
-        return b;
-    }
-}
-
-// Split Linked List into Halves
-void splitList(RecordNode* source, RecordNode*& front, RecordNode*& back) {
-    RecordNode* slow = source;
-    RecordNode* fast = source->next;
-
-    while (fast) {
-        fast = fast->next;
-        if (fast) {
-            slow = slow->next;
-            fast = fast->next;
-        }
-    }
-
-    front = source;
-    back = slow->next;
-    slow->next = nullptr;
-}
-
-// Merge Sort for Linked List
-void mergeSort(RecordNode*& head) {
-    if (!head || !head->next) return;
-
-    RecordNode* a;
-    RecordNode* b;
-    splitList(head, a, b);
-
-    mergeSort(a);
-    mergeSort(b);
-
-    head = mergeSortedLists(a, b);
-}
-
-// Check if Signature Exists
-bool signatureExists(string sigs[], int count, string sig) {
-    for (int i = 0; i < count; ++i) {
-        if (sigs[i] == sig) return true;
-    }
-    return false;
-}
-
-// MAIN PROGRAM
 int main() {
-    RecordNode* transactions = nullptr;
-    RecordNode* reviews = nullptr;
-    RecordNode* combined = nullptr;
+    Transaction transactions[MAX];
+    string uniqueCustomers[MAX];
+    int transCount = 0, uniqueCustomerCount = 0;
 
-    string transactionIDs[1000], reviewIDs[1000], sharedIDs[1000], addedSigs[2000];
-    int transCount = 0, reviewCount = 0, sharedCount = 0, sigCount = 0;
+    string files[] = {
+        R"(D:\C++ FOLDER\Final Assignment\Data CSV\transactions_cleaned.csv)",
+        R"(D:\C++ FOLDER\Final Assignment\Data CSV\reviews_cleaned.csv)"
+    };
 
-    string transactionFile = "transactions_cleaned.csv";
-    string reviewFile = "reviews_cleaned.csv";
+    auto start = high_resolution_clock::now();
 
-    loadTransactions(transactions, transactionIDs, transCount, transactionFile);
-    loadReviews(reviews, reviewIDs, reviewCount, reviewFile);
+    for (int f = 0; f < 2; f++) {
+        ifstream file(files[f]);
+        if (!file) continue;
 
-    // Find Shared ID
-    for (int i = 0; i < transCount; ++i) {
-        if (stringExists(reviewIDs, reviewCount, transactionIDs[i])) {
-            sharedIDs[sharedCount++] = transactionIDs[i];
-        }
-    }
+        string line;
+        getline(file, line);
 
-    // Combine Transactions
-    for (RecordNode* temp = transactions; temp; temp = temp->next) {
-        if (stringExists(sharedIDs, sharedCount, temp->data.customerID)) {
-            string sig = makeSignature(temp->data);
-            if (!signatureExists(addedSigs, sigCount, sig)) {
-                appendRecord(combined, temp->data);
-                addedSigs[sigCount++] = sig;
+        while (getline(file, line) && transCount < MAX) {
+            stringstream ss(line);
+            string id, product, category, priceStr, date, paymentMethod;
+
+            getline(ss, id, ',');
+            getline(ss, product, ',');
+            getline(ss, category, ',');
+            getline(ss, priceStr, ',');
+            getline(ss, date, ',');
+            getline(ss, paymentMethod, ',');
+
+            trim(id); trim(product); trim(category); trim(priceStr); trim(date); trim(paymentMethod);
+            if (!isValidCustomerID(id)) continue;
+
+            bool exists = false;
+            for (int i = 0; i < uniqueCustomerCount; ++i) {
+                if (uniqueCustomers[i] == id) {
+                    exists = true;
+                    break;
+                }
+            }
+
+            if (!exists && uniqueCustomerCount < MAX) {
+                uniqueCustomers[uniqueCustomerCount++] = id;
+            }
+
+            try {
+                float price = stof(priceStr);
+                transactions[transCount++] = {id, product, category, price, date, paymentMethod};
+            } catch (...) {
+                continue;
             }
         }
+
+        file.close();
     }
 
-    // Combine Reviews
-    for (RecordNode* temp = reviews; temp; temp = temp->next) {
-        if (stringExists(sharedIDs, sharedCount, temp->data.customerID) && !temp->data.date.empty()) {
-            string sig = makeSignature(temp->data);
-            if (!signatureExists(addedSigs, sigCount, sig)) {
-                appendRecord(combined, temp->data);
-                addedSigs[sigCount++] = sig;
+    mergeSort(transactions, 0, transCount - 1);
+
+    cout << "\nTop 20 Transaction Dates:\n";
+
+    if (transCount > 0) {
+        string currentDate = transactions[0].date;
+        int dailyCount = 1;
+        int printed = 0;
+
+        for (int i = 1; i < transCount && printed < 20; ++i) {
+            if (transactions[i].date == currentDate) {
+                dailyCount++;
+            } else {
+                cout << currentDate << ": " << dailyCount << " transactions" << endl;
+                printed++;
+                currentDate = transactions[i].date;
+                dailyCount = 1;
             }
         }
-    }
 
-    // Sort Combined 
-    mergeSort(combined);
-
-    // Show Top 5 Unique Dates
-    cout << "\nTop 5 Unique Dates (max 5 records each):\n";
-    string currentDate = "";
-    int shown = 0, dateCount = 0;
-
-    for (RecordNode* temp = combined; temp && dateCount < 5; temp = temp->next) {
-        if (temp->data.date != currentDate) {
-            currentDate = temp->data.date;
-            dateCount++;
-            shown = 0;
-            cout << "\nDate: " << currentDate << "\n";
-            cout << "-----------------------------\n";
-        }
-
-        if (shown < 5) {
-            cout << "- " << temp->data.customerID << " | " << temp->data.product
-                 << " | " << temp->data.category << " | RM" << temp->data.price
-                 << " | " << temp->data.paymentMethod << "\n";
-            shown++;
+        if (printed < 20) {
+            cout << currentDate << ": " << dailyCount << " transactions" << endl;
         }
     }
 
-    cout << "\nTotal Valid Combined Records: " << sigCount << "\n";
+    auto end = high_resolution_clock::now();
+    auto durationMs = duration_cast<milliseconds>(end - start);
+
+    size_t transactionSize = sizeof(Transaction);
+    size_t totalMemoryUsed = transactionSize * transCount;
+
+    cout << "\nTotal unique customers: " << uniqueCustomerCount << endl;
+    cout << "Total transactions processed: " << transCount << endl;
+    cout << "Execution time: " << durationMs.count() << " ms" << endl;
+    cout << "Approximate memory used: " << totalMemoryUsed << " bytes" << endl;
+
     return 0;
+}
+
+void trim(string& s) {
+    while (!s.empty() && (s.back() == '\r' || s.back() == ' ' || s.back() == '\n')) s.pop_back();
+    while (!s.empty() && (s.front() == '\r' || s.front() == ' ' || s.front() == '\n')) s.erase(s.begin());
+}
+
+bool isValidCustomerID(const string& id) {
+    return !id.empty() && id != "NULL" && id != "unknown";
+}
+
+int dateToNumber(const string& date) {
+    int d, m, y;
+    char sep;
+    stringstream ss(date);
+    ss >> d >> sep >> m >> sep >> y;
+    return y * 10000 + m * 100 + d;
+}
+
+void merge(Transaction arr[], int left, int mid, int right) {
+    int n1 = mid - left + 1;
+    int n2 = right - mid;
+
+    Transaction* L = new Transaction[n1];
+    Transaction* R = new Transaction[n2];
+
+    for (int i = 0; i < n1; ++i) L[i] = arr[left + i];
+    for (int j = 0; j < n2; ++j) R[j] = arr[mid + 1 + j];
+
+    int i = 0, j = 0, k = left;
+
+    while (i < n1 && j < n2) {
+        if (dateToNumber(L[i].date) <= dateToNumber(R[j].date)) {
+            arr[k++] = L[i++];
+        } else {
+            arr[k++] = R[j++];
+        }
+    }
+
+    while (i < n1) arr[k++] = L[i++];
+    while (j < n2) arr[k++] = R[j++];
+
+    delete[] L;
+    delete[] R;
+}
+
+void mergeSort(Transaction arr[], int left, int right) {
+    if (left < right) {
+        int mid = left + (right - left) / 2;
+        mergeSort(arr, left, mid);
+        mergeSort(arr, mid + 1, right);
+        merge(arr, left, mid, right);
+    }
 }
