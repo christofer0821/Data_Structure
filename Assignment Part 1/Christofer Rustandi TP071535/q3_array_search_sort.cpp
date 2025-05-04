@@ -15,7 +15,7 @@ struct WordCount {
     int count;
 };
 
-// === Function Prototypes ===
+// Function Prototypes
 string toLowerCase(string text);
 bool isValidChar(char c);
 bool isStopWord(string word);
@@ -23,8 +23,8 @@ int findWordIndex(WordCount wordList[], int size, string word, bool& found);
 void extractWords(string line, WordCount wordList[], int& wordTotal);
 void mergeByFrequency(WordCount arr[], int left, int mid, int right);
 void mergeSortByFrequency(WordCount arr[], int left, int right);
-// ===========================
 
+// List of common stop words
 string stopWords[MAX_STOPS] = {
     "the", "is", "a", "an", "to", "and", "in", "on", "for", "of",
     "with", "at", "by", "from", "up", "about", "into", "over", "after",
@@ -33,16 +33,19 @@ string stopWords[MAX_STOPS] = {
     "out", "no", "do", "did", "has", "have", "had", "can", "will", "just", "my"
 };
 
+// Convert string to lowercase
 string toLowerCase(string text) {
     for (int i = 0; i < text.length(); i++)
         text[i] = tolower(text[i]);
     return text;
 }
 
+// Check if a character is alphanumeric
 bool isValidChar(char c) {
     return isalpha(c) || isdigit(c);
 }
 
+// Check if a word is in the stop word list
 bool isStopWord(string word) {
     for (int i = 0; i < MAX_STOPS; i++) {
         if (stopWords[i] == word)
@@ -51,6 +54,7 @@ bool isStopWord(string word) {
     return false;
 }
 
+// Binary search for word position or insert point
 int findWordIndex(WordCount wordList[], int size, string word, bool& found) {
     int left = 0, right = size - 1;
     found = false;
@@ -70,6 +74,7 @@ int findWordIndex(WordCount wordList[], int size, string word, bool& found) {
     return left;
 }
 
+// Extract words from a line and count their frequency
 void extractWords(string line, WordCount wordList[], int& wordTotal) {
     string word = "";
 
@@ -99,6 +104,7 @@ void extractWords(string line, WordCount wordList[], int& wordTotal) {
     }
 }
 
+// Merge step for merge sort (sorts by count descending)
 void mergeByFrequency(WordCount arr[], int left, int mid, int right) {
     int n1 = mid - left + 1, n2 = right - mid;
     WordCount* L = new WordCount[n1];
@@ -122,6 +128,7 @@ void mergeByFrequency(WordCount arr[], int left, int mid, int right) {
     delete[] R;
 }
 
+// Recursive merge sort to sort word list by frequency
 void mergeSortByFrequency(WordCount arr[], int left, int right) {
     if (left < right) {
         int mid = (left + right) / 2;
@@ -131,9 +138,8 @@ void mergeSortByFrequency(WordCount arr[], int left, int right) {
     }
 }
 
-// === MAIN ===
 int main() {
-    auto start = high_resolution_clock::now();  // Start timing
+    auto start = high_resolution_clock::now();
 
     string filename = "D:/C++ FOLDER/Final Assignment/Data CSV/reviews_cleaned.csv";
     ifstream file(filename);
@@ -143,11 +149,12 @@ int main() {
     }
 
     string line;
-    getline(file, line); // skip header
+    getline(file, line); // Skip header
 
     WordCount wordList[MAX_WORDS];
     int wordTotal = 0;
 
+    // Read file line-by-line and process 1-star reviews
     while (getline(file, line)) {
         stringstream ss(line);
         string productID, customerID, ratingStr, reviewText;
@@ -164,21 +171,20 @@ int main() {
 
     file.close();
 
-    // Sort by frequency using Merge Sort
+    // Sort words by frequency
     mergeSortByFrequency(wordList, 0, wordTotal - 1);
 
-    // Display top 10 frequent words
+    // Display top 10 most frequent words
     cout << "\nTop 10 Frequent Words in 1-Star Reviews:\n";
     for (int i = 0; i < 10 && i < wordTotal; i++) {
         cout << wordList[i].word << " : " << wordList[i].count << endl;
     }
 
-    auto end = high_resolution_clock::now(); // End timing
+    auto end = high_resolution_clock::now();
     auto durationMs = duration_cast<milliseconds>(end - start);
 
-    // Estimate memory used
-    size_t wordCountSize = sizeof(WordCount);
-    size_t memoryUsed = wordCountSize * wordTotal;
+    // Estimate memory usage
+    size_t memoryUsed = sizeof(WordCount) * wordTotal;
 
     cout << "\nExecution time: " << durationMs.count() << " ms" << endl;
     cout << "Approximate memory used: " << memoryUsed << " bytes" << endl;

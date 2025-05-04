@@ -6,38 +6,22 @@
 using namespace std;
 using namespace chrono;
 
-const int MAX_HASH = 100; // simple hash table size
+const int MAX_HASH = 100;
 
-// Linked list node for records
+// === Struct ===
 struct RecordNode {
     string category;
     string paymentMethod;
     RecordNode* next;
 };
 
-// Simple hash function for strings
-int hashString(const string& str) {
-    int hash = 0;
-    for (char c : str) {
-        hash += c;
-    }
-    return hash % MAX_HASH;
-}
+// === Function Prototypes ===
+int hashString(const string& str);
+void append(RecordNode*& head, string category, string payment);
 
-// Append to linked list
-void append(RecordNode*& head, string category, string payment) {
-    RecordNode* newNode = new RecordNode{category, payment, nullptr};
-    if (!head) {
-        head = newNode;
-    } else {
-        RecordNode* temp = head;
-        while (temp->next) temp = temp->next;
-        temp->next = newNode;
-    }
-}
-
+// === Main ===
 int main() {
-    auto start = high_resolution_clock::now(); // Start timing
+    auto start = high_resolution_clock::now();
 
     ifstream file("D:\\C++ FOLDER\\Final Assignment\\Data CSV\\transactions_cleaned.csv");
     if (!file) {
@@ -60,11 +44,12 @@ int main() {
         getline(ss, price, ',');
         getline(ss, date, ',');
         getline(ss, payment, ',');
+
         append(head, category, payment);
         nodeCount++;
     }
 
-    // Step 1: Filter Electronics and hash-check for Credit Card
+    // Step 1: Filter Electronics and check for Credit Card using hash
     int electronicsTotal = 0, creditCardCount = 0;
     int creditCardHash = hashString("Credit Card");
 
@@ -80,7 +65,7 @@ int main() {
         current = current->next;
     }
 
-    // Step 2: Calculate and print percentage
+    // Step 2: Output
     double percentage = (electronicsTotal == 0) ? 0.0 :
                         (double)creditCardCount / electronicsTotal * 100.0;
 
@@ -89,14 +74,35 @@ int main() {
     cout << fixed << setprecision(4);
     cout << "Percentage: " << percentage << "%" << endl;
 
-    auto end = high_resolution_clock::now(); // End timing
+    auto end = high_resolution_clock::now();
     auto durationMs = duration_cast<milliseconds>(end - start);
 
-    size_t nodeSize = sizeof(RecordNode);
-    size_t totalMemory = nodeSize * nodeCount;
-
+    size_t totalMemory = sizeof(RecordNode) * nodeCount;
     cout << "Execution time: " << durationMs.count() << " ms" << endl;
     cout << "Approximate memory used: " << totalMemory << " bytes" << endl;
 
     return 0;
+}
+
+// === Function Definitions ===
+
+// Hash function for strings
+int hashString(const string& str) {
+    int hash = 0;
+    for (char c : str) {
+        hash += c;
+    }
+    return hash % MAX_HASH;
+}
+
+// Append new record to linked list
+void append(RecordNode*& head, string category, string payment) {
+    RecordNode* newNode = new RecordNode{category, payment, nullptr};
+    if (!head) {
+        head = newNode;
+    } else {
+        RecordNode* temp = head;
+        while (temp->next) temp = temp->next;
+        temp->next = newNode;
+    }
 }

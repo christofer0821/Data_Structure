@@ -9,36 +9,17 @@ using namespace chrono;
 
 const int MAX = 10000;
 
+// === Struct ===
 struct Record {
     string category;
     string paymentMethod;
 };
 
-// Binary search helper (find exact matches)
-bool binarySearch(string arr[], int size, const string& key) {
-    int low = 0, high = size - 1;
-    while (low <= high) {
-        int mid = (low + high) / 2;
-        if (arr[mid] == key) return true;
-        else if (arr[mid] < key) low = mid + 1;
-        else high = mid - 1;
-    }
-    return false;
-}
+// === Function Prototypes ===
+bool binarySearch(string arr[], int size, const string& key);
+void bubbleSort(string arr[], int size);
 
-// Simple bubble sort for strings
-void bubbleSort(string arr[], int size) {
-    for (int i = 0; i < size - 1; ++i) {
-        for (int j = 0; j < size - i - 1; ++j) {
-            if (arr[j] > arr[j + 1]) {
-                string temp = arr[j];
-                arr[j] = arr[j + 1];
-                arr[j + 1] = temp;
-            }
-        }
-    }
-}
-
+// === Main Function ===
 int main() {
     auto start = high_resolution_clock::now(); // Start time
 
@@ -104,4 +85,31 @@ int main() {
     cout << "Approximate memory used: " << totalMemory << " bytes" << endl;
 
     return 0;
+}
+
+// === Function Definitions ===
+
+// Binary search for exact match
+bool binarySearch(string arr[], int size, const string& key) {
+    int low = 0, high = size - 1;
+    while (low <= high) {
+        int mid = (low + high) / 2;
+        if (arr[mid] == key) return true;
+        else if (arr[mid] < key) low = mid + 1;
+        else high = mid - 1;
+    }
+    return false;
+}
+
+// Bubble sort for string array
+void bubbleSort(string arr[], int size) {
+    for (int i = 0; i < size - 1; ++i) {
+        for (int j = 0; j < size - i - 1; ++j) {
+            if (arr[j] > arr[j + 1]) {
+                string temp = arr[j];
+                arr[j] = arr[j + 1];
+                arr[j + 1] = temp;
+            }
+        }
+    }
 }
